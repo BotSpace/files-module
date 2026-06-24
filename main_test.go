@@ -53,8 +53,22 @@ func TestUploadFileKeepsPostAcrossSlashRedirect(t *testing.T) {
 			_, _ = w.Write([]byte("hello"))
 			return
 		}
+		if r.URL.Path == "/file/u123/" {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"status":true,"data":{"url":"` + serverURL(r) + `/signed/u123","file":"` + serverURL(r) + `/signed/u123","uuid":"u123"}}`))
+			return
+		}
+		if r.URL.Path == "/signed/u123" {
+			w.Header().Set("Content-Type", "text/plain")
+			_, _ = w.Write([]byte("hello"))
+			return
+		}
 		if r.URL.Path == "/upload" {
 			http.Redirect(w, r, "/upload/", http.StatusMovedPermanently)
+			return
+		}
+		if r.URL.Path != "/upload/" {
+			http.NotFound(w, r)
 			return
 		}
 		gotMethod = r.Method
@@ -110,8 +124,12 @@ func TestUploadFileKeepsPostAcrossSlashRedirect(t *testing.T) {
 		t.Fatalf("uuid = %q, want u123", uuid)
 	}
 	fileURL, _ := out.Result.ContextUpdates["file_url"].(string)
-	if fileURL != server.URL+"/file/u123/" {
-		t.Fatalf("file_url = %q, want %q", fileURL, server.URL+"/file/u123/")
+	if fileURL != server.URL+"/signed/u123" {
+		t.Fatalf("file_url = %q, want %q", fileURL, server.URL+"/signed/u123")
+	}
+	fileAPIURL, _ := out.Result.ContextUpdates["file_api_url"].(string)
+	if fileAPIURL != server.URL+"/file/u123/" {
+		t.Fatalf("file_api_url = %q, want %q", fileAPIURL, server.URL+"/file/u123/")
 	}
 	if gotMethod != http.MethodPost {
 		t.Fatalf("redirected method = %q, want POST", gotMethod)
@@ -125,6 +143,10 @@ func TestUploadFileKeepsPostAcrossSlashRedirect(t *testing.T) {
 	if out.Result.ContextUpdates["file_ttl_seconds"] != float64(60) {
 		t.Fatalf("file_ttl_seconds = %#v, want 60", out.Result.ContextUpdates["file_ttl_seconds"])
 	}
+}
+
+func serverURL(r *http.Request) string {
+	return "http://" + r.Host
 }
 
 func TestDescribeRPC(t *testing.T) {

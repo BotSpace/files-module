@@ -49,7 +49,7 @@ func downloadURLNode() botmodule.Node {
 			"timeout_seconds": 30,
 			"ttl_seconds":     0,
 		},
-		ProducesState: []string{"file_uuid", "file_url", "file_name", "file_size_bytes", "file_content_type", "file_source_url", "file_ttl_seconds", "file_error"},
+		ProducesState: []string{"file_uuid", "file_url", "file_api_url", "file_name", "file_size_bytes", "file_content_type", "file_source_url", "file_ttl_seconds", "file_error"},
 		Outputs: []botmodule.Output{
 			{Name: "success", Label: "Downloaded", Variant: "success"},
 			{Name: "failed", Label: "Failed", Variant: "danger"},
@@ -65,12 +65,17 @@ func downloadURLNode() botmodule.Node {
 			if err != nil {
 				return failedResult(fmt.Errorf("upload file: %w", err))
 			}
+			fileURL, err := c.FileDownloadURL(uuid)
+			if err != nil {
+				return failedResult(fmt.Errorf("resolve file url: %w", err))
+			}
 
 			return botmodule.Result{
 				ExitOutput: "success",
 				ContextUpdates: map[string]any{
 					"file_uuid":         uuid,
-					"file_url":          c.FileURL(uuid),
+					"file_url":          fileURL,
+					"file_api_url":      c.FileURL(uuid),
 					"file_name":         file.Name,
 					"file_size_bytes":   len(file.Content),
 					"file_content_type": file.ContentType,
@@ -134,7 +139,7 @@ func copyFileNode() botmodule.Node {
 			{Type: "number", Key: "ttl_seconds", Label: "Delete after seconds", Optional: true, Placeholder: "0", HelpText: "0 yoki bo'sh bo'lsa yangi nusxa doimiy saqlanadi."},
 		},
 		Defaults:      map[string]any{"source_file_uuid": "{{file_uuid}}", "filename": "", "ttl_seconds": 0},
-		ProducesState: []string{"file_uuid", "file_url", "source_file_uuid", "source_file_url", "file_name", "file_size_bytes", "file_content_type", "file_ttl_seconds", "file_error"},
+		ProducesState: []string{"file_uuid", "file_url", "file_api_url", "source_file_uuid", "source_file_url", "source_file_api_url", "file_name", "file_size_bytes", "file_content_type", "file_ttl_seconds", "file_error"},
 		Outputs: []botmodule.Output{
 			{Name: "success", Label: "Copied", Variant: "success"},
 			{Name: "failed", Label: "Failed", Variant: "danger"},
@@ -159,19 +164,29 @@ func copyFileNode() botmodule.Node {
 			if err != nil {
 				return failedResult(fmt.Errorf("upload copy: %w", err))
 			}
+			fileURL, err := c.FileDownloadURL(uuid)
+			if err != nil {
+				return failedResult(fmt.Errorf("resolve copy url: %w", err))
+			}
+			sourceFileURL, err := c.FileDownloadURL(sourceUUID)
+			if err != nil {
+				return failedResult(fmt.Errorf("resolve source url: %w", err))
+			}
 
 			return botmodule.Result{
 				ExitOutput: "success",
 				ContextUpdates: map[string]any{
-					"file_uuid":         uuid,
-					"file_url":          c.FileURL(uuid),
-					"source_file_uuid":  sourceUUID,
-					"source_file_url":   c.FileURL(sourceUUID),
-					"file_name":         name,
-					"file_size_bytes":   len(content),
-					"file_content_type": detectContentType(content),
-					"file_ttl_seconds":  ttlSeconds,
-					"file_error":        "",
+					"file_uuid":           uuid,
+					"file_url":            fileURL,
+					"file_api_url":        c.FileURL(uuid),
+					"source_file_uuid":    sourceUUID,
+					"source_file_url":     sourceFileURL,
+					"source_file_api_url": c.FileURL(sourceUUID),
+					"file_name":           name,
+					"file_size_bytes":     len(content),
+					"file_content_type":   detectContentType(content),
+					"file_ttl_seconds":    ttlSeconds,
+					"file_error":          "",
 				},
 			}
 		},
@@ -190,7 +205,7 @@ func fileInfoNode() botmodule.Node {
 			{Type: "text", Key: "file_uuid", Label: "File UUID", Placeholder: "{{file_uuid}}"},
 		},
 		Defaults:      map[string]any{"file_uuid": "{{file_uuid}}"},
-		ProducesState: []string{"file_uuid", "file_url", "file_size_bytes", "file_content_type", "file_error"},
+		ProducesState: []string{"file_uuid", "file_url", "file_api_url", "file_size_bytes", "file_content_type", "file_error"},
 		Outputs: []botmodule.Output{
 			{Name: "success", Label: "Found", Variant: "success"},
 			{Name: "failed", Label: "Failed", Variant: "danger"},
@@ -204,11 +219,16 @@ func fileInfoNode() botmodule.Node {
 			if err != nil {
 				return failedResult(err)
 			}
+			fileURL, err := c.FileDownloadURL(uuid)
+			if err != nil {
+				return failedResult(fmt.Errorf("resolve file url: %w", err))
+			}
 			return botmodule.Result{
 				ExitOutput: "success",
 				ContextUpdates: map[string]any{
 					"file_uuid":         uuid,
-					"file_url":          c.FileURL(uuid),
+					"file_url":          fileURL,
+					"file_api_url":      c.FileURL(uuid),
 					"file_size_bytes":   len(content),
 					"file_content_type": detectContentType(content),
 					"file_error":        "",
@@ -231,7 +251,7 @@ func readTextNode() botmodule.Node {
 			{Type: "number", Key: "max_chars", Label: "Max chars", Optional: true, Placeholder: "4000"},
 		},
 		Defaults:      map[string]any{"file_uuid": "{{file_uuid}}", "max_chars": 4000},
-		ProducesState: []string{"file_uuid", "file_url", "file_text", "file_text_truncated", "file_size_bytes", "file_content_type", "file_error"},
+		ProducesState: []string{"file_uuid", "file_url", "file_api_url", "file_text", "file_text_truncated", "file_size_bytes", "file_content_type", "file_error"},
 		Outputs: []botmodule.Output{
 			{Name: "success", Label: "Read", Variant: "success"},
 			{Name: "failed", Label: "Failed", Variant: "danger"},
@@ -245,12 +265,17 @@ func readTextNode() botmodule.Node {
 			if err != nil {
 				return failedResult(err)
 			}
+			fileURL, err := c.FileDownloadURL(uuid)
+			if err != nil {
+				return failedResult(fmt.Errorf("resolve file url: %w", err))
+			}
 			text, truncated := textPreview(content, c.Int("max_chars"))
 			return botmodule.Result{
 				ExitOutput: "success",
 				ContextUpdates: map[string]any{
 					"file_uuid":           uuid,
-					"file_url":            c.FileURL(uuid),
+					"file_url":            fileURL,
+					"file_api_url":        c.FileURL(uuid),
 					"file_text":           text,
 					"file_text_truncated": truncated,
 					"file_size_bytes":     len(content),
@@ -294,7 +319,8 @@ Internetdagi URL'dan fayl yuklab, Botspace storage'ga upload qiladi.
 
 State:
 - ` + "`file_uuid`" + `
-- ` + "`file_url`" + `
+- ` + "`file_url`" + ` — direct signed download URL
+- ` + "`file_api_url`" + ` — Botspace metadata endpoint
 - ` + "`file_name`" + `
 - ` + "`file_size_bytes`" + `
 - ` + "`file_content_type`" + `
@@ -316,9 +342,11 @@ Mavjud faylni o'qib, yangi fayl sifatida qayta upload qiladi.
 
 State:
 - ` + "`file_uuid`" + `
-- ` + "`file_url`" + `
+- ` + "`file_url`" + ` — yangi fayl uchun direct signed download URL
+- ` + "`file_api_url`" + `
 - ` + "`source_file_uuid`" + `
-- ` + "`source_file_url`" + `
+- ` + "`source_file_url`" + ` — source fayl uchun direct signed download URL
+- ` + "`source_file_api_url`" + `
 - ` + "`file_name`" + `
 - ` + "`file_size_bytes`" + `
 - ` + "`file_content_type`" + `
@@ -330,7 +358,8 @@ Faylni o'qib, public URL, hajm va MIME tipini aniqlaydi.
 
 State:
 - ` + "`file_uuid`" + `
-- ` + "`file_url`" + `
+- ` + "`file_url`" + ` — direct signed download URL
+- ` + "`file_api_url`" + `
 - ` + "`file_size_bytes`" + `
 - ` + "`file_content_type`" + `
 
@@ -340,7 +369,8 @@ Fayl contentini text sifatida ` + "`file_text`" + ` state'ga yozadi.
 
 State:
 - ` + "`file_uuid`" + `
-- ` + "`file_url`" + `
+- ` + "`file_url`" + ` — direct signed download URL
+- ` + "`file_api_url`" + `
 - ` + "`file_text`" + `
 
 ## Eslatma
