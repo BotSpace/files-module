@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -39,6 +40,78 @@ func TestTextPreview(t *testing.T) {
 	text, truncated := textPreview([]byte("salom dunyo"), 5)
 	if text != "salom" || !truncated {
 		t.Fatalf("textPreview = %q, %v", text, truncated)
+	}
+}
+
+func TestUploadFileKeepsPostAcrossSlashRedirect(t *testing.T) {
+	var gotMethod string
+	var gotBody string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/source" {
+			w.Header().Set("Content-Type", "text/plain")
+			_, _ = w.Write([]byte("hello"))
+			return
+		}
+		if r.URL.Path == "/upload" {
+			http.Redirect(w, r, "/upload/", http.StatusMovedPermanently)
+			return
+		}
+		gotMethod = r.Method
+		if err := r.ParseMultipartForm(1 << 20); err != nil {
+			t.Fatalf("ParseMultipartForm: %v", err)
+		}
+		file, _, err := r.FormFile("file")
+		if err != nil {
+			t.Fatalf("FormFile: %v", err)
+		}
+		defer file.Close()
+		raw, err := io.ReadAll(file)
+		if err != nil {
+			t.Fatalf("ReadAll: %v", err)
+		}
+		gotBody = string(raw)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"uuid":"u123"}`))
+	}))
+	defer server.Close()
+
+	rpc := httptest.NewServer(newModule().ServeHandler())
+	defer rpc.Close()
+
+	body := bytes.NewBufferString(`{
+		"jsonrpc":"2.0",
+		"method":"node.execute",
+		"id":1,
+		"params":{
+			"type":"files.DownloadURL",
+			"data":{"url":"` + server.URL + `/source","filename":"hello.txt","max_mb":1,"timeout_seconds":5},
+			"file_api":{"get_base":"` + server.URL + `/file","upload_url":"` + server.URL + `/upload","token":"token"}
+		}
+	}`)
+	resp, err := http.Post(rpc.URL+"/rpc", "application/json", body)
+	if err != nil {
+		t.Fatalf("post node.execute: %v", err)
+	}
+	defer resp.Body.Close()
+
+	var out struct {
+		Result struct {
+			ContextUpdates map[string]any `json:"context_updates"`
+			ExitOutput     string         `json:"exit_output"`
+		} `json:"result"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		t.Fatalf("decode execute: %v", err)
+	}
+	uuid, _ := out.Result.ContextUpdates["file_uuid"].(string)
+	if uuid != "u123" {
+		t.Fatalf("uuid = %q, want u123", uuid)
+	}
+	if gotMethod != http.MethodPost {
+		t.Fatalf("redirected method = %q, want POST", gotMethod)
+	}
+	if gotBody != "hello" {
+		t.Fatalf("body = %q, want hello", gotBody)
 	}
 }
 
