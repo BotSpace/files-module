@@ -9,6 +9,8 @@ o'qiydi va fayl haqida oddiy info chiqaradi.
 ### `files.DownloadURL`
 
 Internet URL'dan fayl yuklab Botspace storage'ga upload qiladi.
+`ttl_seconds` > 0 bo'lsa fayl shu muddatdan keyin avtomatik o'chadi. `0` yoki
+bo'sh bo'lsa doimiy saqlanadi.
 
 State:
 
@@ -17,6 +19,7 @@ State:
 - `file_size_bytes`
 - `file_content_type`
 - `file_source_url`
+- `file_ttl_seconds`
 - `file_error`
 
 ### `files.DeleteFile`
@@ -32,6 +35,7 @@ State:
 ### `files.CopyFile`
 
 Mavjud fayl UUID'sini o'qib, yangi fayl sifatida qayta upload qiladi.
+`ttl_seconds` > 0 bo'lsa yangi nusxa shu muddatdan keyin avtomatik o'chadi.
 
 State:
 
@@ -40,6 +44,7 @@ State:
 - `file_name`
 - `file_size_bytes`
 - `file_content_type`
+- `file_ttl_seconds`
 - `file_error`
 
 ### `files.FileInfo`
@@ -95,8 +100,9 @@ docker run -p 8100:8100 files-module
 
 ## Eslatma
 
-`UploadFile`, `GetFile`, `DeleteFile` faqat Botspace runtime file API berganda
-ishlaydi. Oddiy lokal `go run .` paytida `describe`, `docs`, helper testlar
-ishlaydi, lekin haqiqiy upload/get/delete uchun platforma konteksti kerak.
+`UploadFile`, `UploadFileWithTTL`, `GetFile`, `DeleteFile` faqat Botspace runtime
+file API berganda ishlaydi. Oddiy lokal `go run .` paytida `describe`, `docs`,
+helper testlar ishlaydi, lekin haqiqiy upload/get/delete uchun platforma
+konteksti kerak.
 
 To'liq SDK kontrakti uchun [`SDK.md`](./SDK.md) faylini ko'ring.

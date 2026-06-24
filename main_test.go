@@ -46,6 +46,7 @@ func TestTextPreview(t *testing.T) {
 func TestUploadFileKeepsPostAcrossSlashRedirect(t *testing.T) {
 	var gotMethod string
 	var gotBody string
+	var gotTTL string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/source" {
 			w.Header().Set("Content-Type", "text/plain")
@@ -60,6 +61,7 @@ func TestUploadFileKeepsPostAcrossSlashRedirect(t *testing.T) {
 		if err := r.ParseMultipartForm(1 << 20); err != nil {
 			t.Fatalf("ParseMultipartForm: %v", err)
 		}
+		gotTTL = r.FormValue("ttl")
 		file, _, err := r.FormFile("file")
 		if err != nil {
 			t.Fatalf("FormFile: %v", err)
@@ -84,7 +86,7 @@ func TestUploadFileKeepsPostAcrossSlashRedirect(t *testing.T) {
 		"id":1,
 		"params":{
 			"type":"files.DownloadURL",
-			"data":{"url":"` + server.URL + `/source","filename":"hello.txt","max_mb":1,"timeout_seconds":5},
+			"data":{"url":"` + server.URL + `/source","filename":"hello.txt","max_mb":1,"timeout_seconds":5,"ttl_seconds":60},
 			"file_api":{"get_base":"` + server.URL + `/file","upload_url":"` + server.URL + `/upload","token":"token"}
 		}
 	}`)
@@ -112,6 +114,12 @@ func TestUploadFileKeepsPostAcrossSlashRedirect(t *testing.T) {
 	}
 	if gotBody != "hello" {
 		t.Fatalf("body = %q, want hello", gotBody)
+	}
+	if gotTTL != "60" {
+		t.Fatalf("ttl = %q, want 60", gotTTL)
+	}
+	if out.Result.ContextUpdates["file_ttl_seconds"] != float64(60) {
+		t.Fatalf("file_ttl_seconds = %#v, want 60", out.Result.ContextUpdates["file_ttl_seconds"])
 	}
 }
 

@@ -40,14 +40,16 @@ func downloadURLNode() botmodule.Node {
 			{Type: "text", Key: "filename", Label: "Filename", Optional: true, Placeholder: "report.pdf"},
 			{Type: "number", Key: "max_mb", Label: "Max MB", Optional: true, Placeholder: "25"},
 			{Type: "number", Key: "timeout_seconds", Label: "Timeout", Optional: true, Placeholder: "30"},
+			{Type: "number", Key: "ttl_seconds", Label: "Delete after seconds", Optional: true, Placeholder: "0", HelpText: "0 yoki bo'sh bo'lsa fayl doimiy saqlanadi."},
 		},
 		Defaults: map[string]any{
 			"url":             "",
 			"filename":        "",
 			"max_mb":          25,
 			"timeout_seconds": 30,
+			"ttl_seconds":     0,
 		},
-		ProducesState: []string{"file_uuid", "file_name", "file_size_bytes", "file_content_type", "file_source_url", "file_error"},
+		ProducesState: []string{"file_uuid", "file_name", "file_size_bytes", "file_content_type", "file_source_url", "file_ttl_seconds", "file_error"},
 		Outputs: []botmodule.Output{
 			{Name: "success", Label: "Downloaded", Variant: "success"},
 			{Name: "failed", Label: "Failed", Variant: "danger"},
@@ -58,7 +60,8 @@ func downloadURLNode() botmodule.Node {
 				return failedResult(err)
 			}
 
-			uuid, err := c.UploadFile(file.Name, file.Content)
+			ttlSeconds := normalizeTTL(c.Int("ttl_seconds"))
+			uuid, err := c.UploadFileWithTTL(file.Name, file.Content, ttlSeconds)
 			if err != nil {
 				return failedResult(fmt.Errorf("upload file: %w", err))
 			}
@@ -71,6 +74,7 @@ func downloadURLNode() botmodule.Node {
 					"file_size_bytes":   len(file.Content),
 					"file_content_type": file.ContentType,
 					"file_source_url":   file.SourceURL,
+					"file_ttl_seconds":  ttlSeconds,
 					"file_error":        "",
 				},
 			}
@@ -126,9 +130,10 @@ func copyFileNode() botmodule.Node {
 		Content: []botmodule.Field{
 			{Type: "text", Key: "source_file_uuid", Label: "Source file UUID", Placeholder: "{{file_uuid}}"},
 			{Type: "text", Key: "filename", Label: "New filename", Optional: true, Placeholder: "copy.bin"},
+			{Type: "number", Key: "ttl_seconds", Label: "Delete after seconds", Optional: true, Placeholder: "0", HelpText: "0 yoki bo'sh bo'lsa yangi nusxa doimiy saqlanadi."},
 		},
-		Defaults:      map[string]any{"source_file_uuid": "{{file_uuid}}", "filename": ""},
-		ProducesState: []string{"file_uuid", "source_file_uuid", "file_name", "file_size_bytes", "file_content_type", "file_error"},
+		Defaults:      map[string]any{"source_file_uuid": "{{file_uuid}}", "filename": "", "ttl_seconds": 0},
+		ProducesState: []string{"file_uuid", "source_file_uuid", "file_name", "file_size_bytes", "file_content_type", "file_ttl_seconds", "file_error"},
 		Outputs: []botmodule.Output{
 			{Name: "success", Label: "Copied", Variant: "success"},
 			{Name: "failed", Label: "Failed", Variant: "danger"},
@@ -148,7 +153,8 @@ func copyFileNode() botmodule.Node {
 			if name == "" {
 				name = "copy-" + sourceUUID + ".bin"
 			}
-			uuid, err := c.UploadFile(name, content)
+			ttlSeconds := normalizeTTL(c.Int("ttl_seconds"))
+			uuid, err := c.UploadFileWithTTL(name, content, ttlSeconds)
 			if err != nil {
 				return failedResult(fmt.Errorf("upload copy: %w", err))
 			}
@@ -161,6 +167,7 @@ func copyFileNode() botmodule.Node {
 					"file_name":         name,
 					"file_size_bytes":   len(content),
 					"file_content_type": detectContentType(content),
+					"file_ttl_seconds":  ttlSeconds,
 					"file_error":        "",
 				},
 			}
@@ -258,6 +265,17 @@ func failedResult(err error) botmodule.Result {
 	}
 }
 
+func normalizeTTL(ttlSeconds int64) int {
+	if ttlSeconds <= 0 {
+		return 0
+	}
+	const maxInt = int64(^uint(0) >> 1)
+	if ttlSeconds > maxInt {
+		return int(maxInt)
+	}
+	return int(ttlSeconds)
+}
+
 const docs = `# Files Module
 
 Botspace file API bilan ishlash uchun Go moduli.
@@ -274,6 +292,10 @@ State:
 - ` + "`file_size_bytes`" + `
 - ` + "`file_content_type`" + `
 - ` + "`file_source_url`" + `
+- ` + "`file_ttl_seconds`" + `
+
+` + "`ttl_seconds`" + ` > 0 bo'lsa fayl shuncha soniyadan keyin avtomatik o'chadi.
+0 yoki bo'sh bo'lsa doimiy saqlanadi.
 
 ### ` + "`files.DeleteFile`" + `
 
@@ -282,6 +304,8 @@ State:
 ### ` + "`files.CopyFile`" + `
 
 Mavjud faylni o'qib, yangi fayl sifatida qayta upload qiladi.
+
+` + "`ttl_seconds`" + ` > 0 bo'lsa yangi nusxa shuncha soniyadan keyin avtomatik o'chadi.
 
 ### ` + "`files.FileInfo`" + `
 
