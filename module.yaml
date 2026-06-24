@@ -1,0 +1,19 @@
+apiVersion: botmother.module/v1
+
+module:
+  id: files
+  name: Files
+  description: Botspace file API orqali fayl yuklash, o'chirish, nusxalash va o'qish.
+  icon: folder
+
+# source: github (platforma image quradi) YOKI endpoint (self-hosted, build yo'q)
+source:
+  github: https://github.com/botspace/files-module
+  # endpoint: https://my-server.com
+
+runtime:                     # faqat source.github uchun
+  dockerfile: Dockerfile
+  port: 8100
+
+# Eslatma: node'lar, methodlar va credential type'lar describe() RPC'dan olinadi —
+# bu yerda sanalmaydi (platforma faqat module/source/runtime ni o'qiydi).
