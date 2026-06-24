@@ -15,6 +15,7 @@ bo'sh bo'lsa doimiy saqlanadi.
 State:
 
 - `file_uuid`
+- `file_url`
 - `file_name`
 - `file_size_bytes`
 - `file_content_type`
@@ -40,7 +41,9 @@ Mavjud fayl UUID'sini o'qib, yangi fayl sifatida qayta upload qiladi.
 State:
 
 - `file_uuid`
+- `file_url`
 - `source_file_uuid`
+- `source_file_url`
 - `file_name`
 - `file_size_bytes`
 - `file_content_type`
@@ -54,6 +57,7 @@ Faylni UUID orqali o'qib, hajm va MIME tipini aniqlaydi.
 State:
 
 - `file_uuid`
+- `file_url`
 - `file_size_bytes`
 - `file_content_type`
 - `file_error`
@@ -65,6 +69,8 @@ Fayl contentini text sifatida `file_text` state'ga yozadi. Katta fayllar uchun
 
 State:
 
+- `file_uuid`
+- `file_url`
 - `file_text`
 - `file_text_truncated`
 - `file_size_bytes`

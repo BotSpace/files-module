@@ -109,6 +109,10 @@ func TestUploadFileKeepsPostAcrossSlashRedirect(t *testing.T) {
 	if uuid != "u123" {
 		t.Fatalf("uuid = %q, want u123", uuid)
 	}
+	fileURL, _ := out.Result.ContextUpdates["file_url"].(string)
+	if fileURL != server.URL+"/file/u123/" {
+		t.Fatalf("file_url = %q, want %q", fileURL, server.URL+"/file/u123/")
+	}
 	if gotMethod != http.MethodPost {
 		t.Fatalf("redirected method = %q, want POST", gotMethod)
 	}

@@ -49,7 +49,7 @@ func downloadURLNode() botmodule.Node {
 			"timeout_seconds": 30,
 			"ttl_seconds":     0,
 		},
-		ProducesState: []string{"file_uuid", "file_name", "file_size_bytes", "file_content_type", "file_source_url", "file_ttl_seconds", "file_error"},
+		ProducesState: []string{"file_uuid", "file_url", "file_name", "file_size_bytes", "file_content_type", "file_source_url", "file_ttl_seconds", "file_error"},
 		Outputs: []botmodule.Output{
 			{Name: "success", Label: "Downloaded", Variant: "success"},
 			{Name: "failed", Label: "Failed", Variant: "danger"},
@@ -70,6 +70,7 @@ func downloadURLNode() botmodule.Node {
 				ExitOutput: "success",
 				ContextUpdates: map[string]any{
 					"file_uuid":         uuid,
+					"file_url":          c.FileURL(uuid),
 					"file_name":         file.Name,
 					"file_size_bytes":   len(file.Content),
 					"file_content_type": file.ContentType,
@@ -133,7 +134,7 @@ func copyFileNode() botmodule.Node {
 			{Type: "number", Key: "ttl_seconds", Label: "Delete after seconds", Optional: true, Placeholder: "0", HelpText: "0 yoki bo'sh bo'lsa yangi nusxa doimiy saqlanadi."},
 		},
 		Defaults:      map[string]any{"source_file_uuid": "{{file_uuid}}", "filename": "", "ttl_seconds": 0},
-		ProducesState: []string{"file_uuid", "source_file_uuid", "file_name", "file_size_bytes", "file_content_type", "file_ttl_seconds", "file_error"},
+		ProducesState: []string{"file_uuid", "file_url", "source_file_uuid", "source_file_url", "file_name", "file_size_bytes", "file_content_type", "file_ttl_seconds", "file_error"},
 		Outputs: []botmodule.Output{
 			{Name: "success", Label: "Copied", Variant: "success"},
 			{Name: "failed", Label: "Failed", Variant: "danger"},
@@ -163,7 +164,9 @@ func copyFileNode() botmodule.Node {
 				ExitOutput: "success",
 				ContextUpdates: map[string]any{
 					"file_uuid":         uuid,
+					"file_url":          c.FileURL(uuid),
 					"source_file_uuid":  sourceUUID,
+					"source_file_url":   c.FileURL(sourceUUID),
 					"file_name":         name,
 					"file_size_bytes":   len(content),
 					"file_content_type": detectContentType(content),
@@ -187,7 +190,7 @@ func fileInfoNode() botmodule.Node {
 			{Type: "text", Key: "file_uuid", Label: "File UUID", Placeholder: "{{file_uuid}}"},
 		},
 		Defaults:      map[string]any{"file_uuid": "{{file_uuid}}"},
-		ProducesState: []string{"file_uuid", "file_size_bytes", "file_content_type", "file_error"},
+		ProducesState: []string{"file_uuid", "file_url", "file_size_bytes", "file_content_type", "file_error"},
 		Outputs: []botmodule.Output{
 			{Name: "success", Label: "Found", Variant: "success"},
 			{Name: "failed", Label: "Failed", Variant: "danger"},
@@ -205,6 +208,7 @@ func fileInfoNode() botmodule.Node {
 				ExitOutput: "success",
 				ContextUpdates: map[string]any{
 					"file_uuid":         uuid,
+					"file_url":          c.FileURL(uuid),
 					"file_size_bytes":   len(content),
 					"file_content_type": detectContentType(content),
 					"file_error":        "",
@@ -227,7 +231,7 @@ func readTextNode() botmodule.Node {
 			{Type: "number", Key: "max_chars", Label: "Max chars", Optional: true, Placeholder: "4000"},
 		},
 		Defaults:      map[string]any{"file_uuid": "{{file_uuid}}", "max_chars": 4000},
-		ProducesState: []string{"file_text", "file_text_truncated", "file_size_bytes", "file_content_type", "file_error"},
+		ProducesState: []string{"file_uuid", "file_url", "file_text", "file_text_truncated", "file_size_bytes", "file_content_type", "file_error"},
 		Outputs: []botmodule.Output{
 			{Name: "success", Label: "Read", Variant: "success"},
 			{Name: "failed", Label: "Failed", Variant: "danger"},
@@ -245,6 +249,8 @@ func readTextNode() botmodule.Node {
 			return botmodule.Result{
 				ExitOutput: "success",
 				ContextUpdates: map[string]any{
+					"file_uuid":           uuid,
+					"file_url":            c.FileURL(uuid),
 					"file_text":           text,
 					"file_text_truncated": truncated,
 					"file_size_bytes":     len(content),
@@ -288,6 +294,7 @@ Internetdagi URL'dan fayl yuklab, Botspace storage'ga upload qiladi.
 
 State:
 - ` + "`file_uuid`" + `
+- ` + "`file_url`" + `
 - ` + "`file_name`" + `
 - ` + "`file_size_bytes`" + `
 - ` + "`file_content_type`" + `
@@ -307,13 +314,34 @@ Mavjud faylni o'qib, yangi fayl sifatida qayta upload qiladi.
 
 ` + "`ttl_seconds`" + ` > 0 bo'lsa yangi nusxa shuncha soniyadan keyin avtomatik o'chadi.
 
+State:
+- ` + "`file_uuid`" + `
+- ` + "`file_url`" + `
+- ` + "`source_file_uuid`" + `
+- ` + "`source_file_url`" + `
+- ` + "`file_name`" + `
+- ` + "`file_size_bytes`" + `
+- ` + "`file_content_type`" + `
+- ` + "`file_ttl_seconds`" + `
+
 ### ` + "`files.FileInfo`" + `
 
-Faylni o'qib, hajm va MIME tipini aniqlaydi.
+Faylni o'qib, public URL, hajm va MIME tipini aniqlaydi.
+
+State:
+- ` + "`file_uuid`" + `
+- ` + "`file_url`" + `
+- ` + "`file_size_bytes`" + `
+- ` + "`file_content_type`" + `
 
 ### ` + "`files.ReadText`" + `
 
 Fayl contentini text sifatida ` + "`file_text`" + ` state'ga yozadi.
+
+State:
+- ` + "`file_uuid`" + `
+- ` + "`file_url`" + `
+- ` + "`file_text`" + `
 
 ## Eslatma
 
